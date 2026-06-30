@@ -203,6 +203,21 @@ body{
 }
 .insight-item .ico{color:var(--red); font-weight:700; flex-shrink:0;}
 
+/* ---------- Mood breakdown rows ---------- */
+.mood-row{display:flex; align-items:center; gap:14px; padding:11px 0; border-bottom:1px solid var(--line);}
+.mood-row:last-child{border-bottom:none;}
+.mood-icon{
+  width:38px; height:38px; border-radius:11px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:18px;
+}
+.mood-info{flex:1; min-width:0;}
+.mood-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:8px;}
+.mood-name{font-size:13.5px; font-weight:600; color:var(--ink);}
+.mood-stat{font-size:13px; color:var(--ink); font-weight:600;}
+.mood-pct{color:var(--ink-soft); font-weight:500;}
+.mood-track{height:9px; background:var(--teal-tint); border-radius:999px; overflow:hidden;}
+.mood-fill{height:100%; border-radius:999px; transition:width .4s ease;}
+
 /* ---------- Topic bars (custom horizontal) ---------- */
 .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
 .bar-label{font-size:12.5px; width:170px; flex-shrink:0; color:var(--ink); text-align:right;}
@@ -341,7 +356,7 @@ body{
     <div class="panel">
       <h3>สัดส่วนความรู้สึกวันนี้</h3>
       <div class="panel-sub">How are you feeling today?</div>
-      <div class="chart-box tall"><canvas id="moodChart"></canvas></div>
+      <div class="chart-box tall" id="moodChartContainer" style="overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -409,6 +424,42 @@ const COL_KEYS = {
   contact: ["ช่องทางการติดต่อของคุณ", "your contact information"],
   finalSuggestion: ["ข้อเสนอแนะ และสิ่งที่อยากบอก", "suggestions and things you want to share"]
 };
+
+const MOOD_OPTIONS = [
+  { key: "สบายใจ", label: "สบายใจ", en: "Feeling at ease" },
+  { key: "เหนื่อยล้า", label: "เหนื่อยล้า", en: "Exhausted" },
+  { key: "เครียด", label: "เครียด", en: "Stressed" },
+  { key: "ท้อแท้", label: "ท้อแท้", en: "Discouraged" },
+  { key: "รู้สึกไม่มีใครเข้าใจ", label: "รู้สึกไม่มีใครเข้าใจ", en: "Feeling misunderstood" },
+  { key: "อื่นๆ", label: "อื่น ๆ", en: "Other" }
+];
+
+const AUDIENCE_OPTIONS = [
+  { key: "ไม่เฉพาะเจาะจง", label: "ไม่เฉพาะเจาะจง", en: "Not specific" },
+  { key: "ผู้บริหารระดับสูงของโรงพยาบาล", label: "ผู้บริหารระดับสูงของโรงพยาบาล", en: "Hospital executives" },
+  { key: "หัวหน้าพยาบาล", label: "หัวหน้าพยาบาล", en: "Head of Nurse" },
+  { key: "ทีม HR", label: "ทีม HR", en: "HR Team" },
+  { key: "จิตวิทยาองค์กร", label: "จิตวิทยาองค์กร", en: "Organizational Psychologist" },
+  { key: "อื่นๆ", label: "อื่น ๆ", en: "Other" }
+];
+
+function normalizeToOption(value, options) {
+  const v = (value || "").toString().trim().replace(/\s+/g, "");
+  if (!v) return null;
+  for (const opt of options) {
+    const optKey = opt.key.replace(/\s+/g, "");
+    if (v === optKey || v.includes(optKey) || optKey.includes(v)) {
+      if (opt.key !== "อื่นๆ") return opt.label;
+    }
+  }
+  const lower = (value||"").toLowerCase();
+  for (const opt of options) {
+    if (opt.en && lower.includes(opt.en.toLowerCase())) {
+      if (opt.key !== "อื่นๆ") return opt.label;
+    }
+  }
+  return "อื่น ๆ";
+}
 
 const TOPIC_FIELDS = [
   { key: "teamSuggestion", label: "ข้อเสนอแนะเพื่อพัฒนาทีม/งาน" },
@@ -492,6 +543,8 @@ function parseTable(table) {
       contact: String(get(colIndex.contact) || "").trim(),
       finalSuggestion: String(get(colIndex.finalSuggestion) || "").trim()
     };
+    row.moodNorm = normalizeToOption(row.mood, MOOD_OPTIONS);
+    row.audienceNorm = normalizeToOption(row.audience, AUDIENCE_OPTIONS);
     // skip fully empty rows
     const hasContent = Object.values(row).some(v => v && v !== "" && !(v instanceof Date));
     if (hasContent) rows.push(row);
@@ -532,7 +585,7 @@ function populateFilters(rows) {
       years.add(buddhistYear(r.date));
       months.add(r.date.getMonth());
     }
-    if (r.mood) moods.add(r.mood);
+    if (r.moodNorm) moods.add(r.moodNorm);
   });
 
   const yearSel = $("#filterYear");
@@ -550,10 +603,12 @@ function populateFilters(rows) {
   });
 
   const moodSel = $("#filterMood");
-  Array.from(moods).sort().forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m; opt.textContent = m;
-    moodSel.appendChild(opt);
+  MOOD_OPTIONS.forEach(opt => {
+    if (moods.has(opt.label)) {
+      const o = document.createElement("option");
+      o.value = opt.label; o.textContent = opt.label;
+      moodSel.appendChild(o);
+    }
   });
 }
 
@@ -571,7 +626,7 @@ function applyFilters() {
     if (month !== "all") {
       if (!r.date || r.date.getMonth() !== parseInt(month)) return false;
     }
-    if (mood !== "all" && r.mood !== mood) return false;
+    if (mood !== "all" && r.moodNorm !== mood) return false;
     if (search) {
       const haystack = [
         r.issue, r.teamSuggestion, r.unsaidMeeting, r.orgShouldKnow,
@@ -593,13 +648,13 @@ function renderKPIs() {
   const total = FILTERED_ROWS.length;
 
   const moodCounts = {};
-  FILTERED_ROWS.forEach(r => { if (r.mood) moodCounts[r.mood] = (moodCounts[r.mood]||0)+1; });
+  FILTERED_ROWS.forEach(r => { if (r.moodNorm) moodCounts[r.moodNorm] = (moodCounts[r.moodNorm]||0)+1; });
   const topMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0];
 
   const withContact = FILTERED_ROWS.filter(r => r.contact && r.contact.length > 0).length;
 
   const audienceCounts = {};
-  FILTERED_ROWS.forEach(r => { if (r.audience) audienceCounts[r.audience] = (audienceCounts[r.audience]||0)+1; });
+  FILTERED_ROWS.forEach(r => { if (r.audienceNorm) audienceCounts[r.audienceNorm] = (audienceCounts[r.audienceNorm]||0)+1; });
   const topAudience = Object.entries(audienceCounts).sort((a,b)=>b[1]-a[1])[0];
 
   // this month count
@@ -672,34 +727,57 @@ function renderTrendChart() {
   });
 }
 
+const MOOD_COLORS = {
+  "สบายใจ": "#2A9D8F",
+  "เหนื่อยล้า": "#E0A458",
+  "เครียด": "#E8392B",
+  "ท้อแท้": "#8E5572",
+  "รู้สึกไม่มีใครเข้าใจ": "#3D5C56",
+  "อื่น ๆ": "#9ED4CB"
+};
+const MOOD_ICONS = {
+  "สบายใจ": "🙂",
+  "เหนื่อยล้า": "😮‍💨",
+  "เครียด": "😣",
+  "ท้อแท้": "😞",
+  "รู้สึกไม่มีใครเข้าใจ": "😔",
+  "อื่น ๆ": "💬"
+};
+
 function renderMoodChart() {
   const counts = {};
-  FILTERED_ROWS.forEach(r => { if (r.mood) counts[r.mood] = (counts[r.mood]||0)+1; });
-  const labels = Object.keys(counts);
-  const data = labels.map(l => counts[l]);
+  MOOD_OPTIONS.forEach(o => counts[o.label] = 0);
+  FILTERED_ROWS.forEach(r => { if (r.moodNorm) counts[r.moodNorm] = (counts[r.moodNorm]||0) + 1; });
 
-  if (charts.mood) charts.mood.destroy();
-  charts.mood = new Chart($("#moodChart"), {
-    type: "doughnut",
-    data: {
-      labels,
-      datasets: [{ data, backgroundColor: PALETTE, borderColor:"#fff", borderWidth:2 }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      cutout:"62%",
-      plugins: {
-        legend: { position:"bottom", labels:{ font:{family:"Sarabun", size:11.5}, padding:14, boxWidth:12, boxHeight:12 } },
-        tooltip: { backgroundColor:"#1B6F66", padding:10, titleFont:{family:"Sarabun"}, bodyFont:{family:"Sarabun"} }
-      }
-    }
+  const total = FILTERED_ROWS.length || 1;
+  const container = $("#moodChartContainer");
+  container.innerHTML = "";
+
+  MOOD_OPTIONS.forEach(opt => {
+    const count = counts[opt.label] || 0;
+    const pct = Math.round(count / total * 100);
+    const color = MOOD_COLORS[opt.label];
+    const row = document.createElement("div");
+    row.className = "mood-row";
+    row.innerHTML = `
+      <div class="mood-icon" style="background:${color}1A; color:${color}">${MOOD_ICONS[opt.label]}</div>
+      <div class="mood-info">
+        <div class="mood-top">
+          <span class="mood-name">${escapeHtml(opt.label)}</span>
+          <span class="mood-stat mono">${count} <span class="mood-pct">(${pct}%)</span></span>
+        </div>
+        <div class="mood-track"><div class="mood-fill" style="width:${pct}%; background:${color}"></div></div>
+      </div>
+    `;
+    container.appendChild(row);
   });
 }
 
 function renderAudienceChart() {
   const counts = {};
-  FILTERED_ROWS.forEach(r => { if (r.audience) counts[r.audience] = (counts[r.audience]||0)+1; });
-  const labels = Object.keys(counts);
+  AUDIENCE_OPTIONS.forEach(o => counts[o.label] = 0);
+  FILTERED_ROWS.forEach(r => { if (r.audienceNorm) counts[r.audienceNorm] = (counts[r.audienceNorm]||0) + 1; });
+  const labels = AUDIENCE_OPTIONS.map(o => o.label);
   const data = labels.map(l => counts[l]);
 
   if (charts.audience) charts.audience.destroy();
@@ -756,7 +834,7 @@ function renderInsights() {
 
   // Mood insight
   const moodCounts = {};
-  FILTERED_ROWS.forEach(r => { if (r.mood) moodCounts[r.mood] = (moodCounts[r.mood]||0)+1; });
+  FILTERED_ROWS.forEach(r => { if (r.moodNorm) moodCounts[r.moodNorm] = (moodCounts[r.moodNorm]||0)+1; });
   const sortedMoods = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1]);
   if (sortedMoods.length) {
     const [topM, topC] = sortedMoods[0];
@@ -771,7 +849,7 @@ function renderInsights() {
 
   // Audience insight
   const audCounts = {};
-  FILTERED_ROWS.forEach(r => { if (r.audience) audCounts[r.audience] = (audCounts[r.audience]||0)+1; });
+  FILTERED_ROWS.forEach(r => { if (r.audienceNorm) audCounts[r.audienceNorm] = (audCounts[r.audienceNorm]||0)+1; });
   const sortedAud = Object.entries(audCounts).sort((a,b)=>b[1]-a[1]);
   if (sortedAud.length) {
     insights.push(`พนักงานต้องการให้ "${sortedAud[0][0]}" รับรู้เรื่องมากที่สุด (${sortedAud[0][1]} รายการ)`);
@@ -858,7 +936,7 @@ function renderFeedList() {
     const dateStr = e.row.date ? `${e.row.date.getDate()} ${THAI_MONTHS[e.row.date.getMonth()].substring(0,3)} ${buddhistYear(e.row.date)}` : "";
     card.innerHTML = `
       <div class="feed-meta">
-        <span class="feed-mood">${escapeHtml(e.row.mood || "ไม่ระบุความรู้สึก")}</span>
+        <span class="feed-mood">${escapeHtml(e.row.moodNorm || "ไม่ระบุความรู้สึก")}</span>
         <span class="feed-date">${dateStr}</span>
       </div>
       <div class="feed-q">${escapeHtml(e.topicLabel)}</div>
@@ -891,10 +969,12 @@ function renderAll() {
 function exportExcel() {
   const wsData = FILTERED_ROWS.map(r => ({
     "วันเวลา": r.date ? r.date.toLocaleString("th-TH") : r.timestampRaw,
-    "ความรู้สึก": r.mood,
+    "ความรู้สึก": r.moodNorm || r.mood,
+    "ความรู้สึก (ข้อความดิบ)": r.mood,
     "ความรู้สึกอื่นๆ": r.moodOther,
     "ปัญหาที่อยากระบาย": r.issue,
-    "ต้องการให้ใครรับรู้": r.audience,
+    "ต้องการให้ใครรับรู้": r.audienceNorm || r.audience,
+    "ต้องการให้ใครรับรู้ (ข้อความดิบ)": r.audience,
     "ระบุผู้รับรู้อื่นๆ": r.audienceOther,
     "ประเภทข้อเสนอแนะ": r.suggestionType,
     "ข้อเสนอแนะทีม/งาน": r.teamSuggestion,
@@ -912,7 +992,7 @@ function exportExcel() {
 
   // summary sheet
   const moodCounts = {};
-  FILTERED_ROWS.forEach(r => { if (r.mood) moodCounts[r.mood] = (moodCounts[r.mood]||0)+1; });
+  FILTERED_ROWS.forEach(r => { if (r.moodNorm) moodCounts[r.moodNorm] = (moodCounts[r.moodNorm]||0)+1; });
   const summaryData = [
     { "หัวข้อ": "จำนวนรายการทั้งหมด", "ค่า": FILTERED_ROWS.length },
     ...Object.entries(moodCounts).map(([k,v]) => ({ "หัวข้อ": "ความรู้สึก: " + k, "ค่า": v }))
