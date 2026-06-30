@@ -6,6 +6,16 @@
 <title>Safe Voice Wall — เสียงของเราในพื้นที่ที่ปลอดภัย</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* TH Sarabun New: use system/local copy if the OS has it installed (common on Thai
+   government & hospital machines), otherwise gracefully fall back to the
+   Google-hosted "Sarabun" webfont, which shares the same letterforms. */
+@font-face {
+  font-family: 'TH Sarabun New';
+  src: local('TH Sarabun New'), local('THSarabunNew'), local('TH SarabunPSK');
+  font-weight: 400 700;
+}
+</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -28,7 +38,7 @@
 *{box-sizing:border-box; margin:0; padding:0;}
 html{scroll-behavior:smooth;}
 body{
-  font-family:'Sarabun', sans-serif;
+  font-family:'TH Sarabun New','Sarabun',sans-serif;
   background:var(--bg);
   color:var(--ink);
   line-height:1.55;
@@ -77,7 +87,7 @@ body{
 
 .export-actions{display:flex; gap:10px;}
 .btn{
-  font-family:'Sarabun', sans-serif;
+  font-family:'TH Sarabun New','Sarabun',sans-serif;
   font-size:13.5px; font-weight:600;
   padding:9px 16px;
   border-radius:999px;
@@ -145,7 +155,7 @@ body{
 .filter-group{display:flex; flex-direction:column; gap:4px;}
 .filter-group label{font-size:11px; color:var(--ink-soft); font-weight:600;}
 .filter-group select, .filter-group input[type=text]{
-  font-family:'Sarabun', sans-serif;
+  font-family:'TH Sarabun New','Sarabun',sans-serif;
   padding:8px 12px; border-radius:10px; border:1.5px solid var(--line);
   background:#fff; font-size:13.5px; color:var(--ink);
   min-width:150px;
@@ -196,6 +206,17 @@ body{
 
 /* ---------- Insight callouts ---------- */
 .insight-list{display:flex; flex-direction:column; gap:10px;}
+.insight-summary{
+  display:flex; align-items:flex-start; gap:10px;
+  background:linear-gradient(135deg, var(--teal-deep), var(--teal));
+  color:#fff; border-radius:14px; padding:14px 16px;
+  font-size:13.5px; line-height:1.6; margin-bottom:4px;
+}
+.insight-summary-tag{
+  font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:600;
+  background:rgba(255,255,255,0.22); padding:3px 9px; border-radius:999px;
+  flex-shrink:0; margin-top:2px; letter-spacing:0.04em;
+}
 .insight-item{
   display:flex; gap:10px; align-items:flex-start;
   font-size:13px; color:var(--ink);
@@ -364,7 +385,7 @@ body{
     <div class="panel">
       <h3>ต้องการให้ใครรับรู้เรื่องนี้</h3>
       <div class="panel-sub">สัดส่วนผู้รับเรื่องที่พนักงานต้องการ</div>
-      <div class="chart-box"><canvas id="audienceChart"></canvas></div>
+      <div class="chart-box" style="height:300px;"><canvas id="audienceChart"></canvas></div>
     </div>
     <div class="panel">
       <h3>ประเด็นสำคัญที่พบบ่อย</h3>
@@ -572,6 +593,7 @@ function parseGvizDate(raw, cellObj) {
 
 // ---------- Thai month/year helpers ----------
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const THAI_MONTHS_ABBR = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 function buddhistYear(d) { return d.getFullYear() + 543; }
 
 // ---------- Populate filter dropdowns ----------
@@ -694,7 +716,7 @@ function renderTrendChart() {
   const keys = Object.keys(monthMap).sort();
   const labels = keys.map(k => {
     const [y,m] = k.split("-");
-    return THAI_MONTHS[parseInt(m)-1].substring(0,3) + " " + (parseInt(y)+543).toString().substring(2);
+    return THAI_MONTHS_ABBR[parseInt(m)-1] + " " + (parseInt(y)+543).toString().substring(2);
   });
   const data = keys.map(k => monthMap[k]);
 
@@ -718,9 +740,9 @@ function renderTrendChart() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display:false }, tooltip: { backgroundColor:"#1B6F66", padding:10, titleFont:{family:"Sarabun"}, bodyFont:{family:"Sarabun"} } },
+      plugins: { legend: { display:false }, tooltip: { backgroundColor:"#1B6F66", padding:10, titleFont:{family:"TH Sarabun New, Sarabun"}, bodyFont:{family:"TH Sarabun New, Sarabun"} } },
       scales: {
-        x: { grid:{ display:false }, ticks:{ font:{family:"Sarabun", size:11} } },
+        x: { grid:{ display:false }, ticks:{ font:{family:"TH Sarabun New, Sarabun", size:11} } },
         y: { beginAtZero:true, ticks:{ precision:0, font:{family:"IBM Plex Mono", size:11} }, grid:{ color:"#EAF4F2" } }
       }
     }
@@ -779,22 +801,44 @@ function renderAudienceChart() {
   FILTERED_ROWS.forEach(r => { if (r.audienceNorm) counts[r.audienceNorm] = (counts[r.audienceNorm]||0) + 1; });
   const labels = AUDIENCE_OPTIONS.map(o => o.label);
   const data = labels.map(l => counts[l]);
+  const maxVal = Math.max(...data, 1);
 
   if (charts.audience) charts.audience.destroy();
   charts.audience = new Chart($("#audienceChart"), {
     type: "bar",
     data: {
       labels,
-      datasets: [{ data, backgroundColor: "#2A9D8F", borderRadius:8, maxBarThickness:42 }]
+      datasets: [{ data, backgroundColor: "#2A9D8F", borderRadius:8, maxBarThickness:28 }]
     },
     options: {
+      indexAxis: "y",
       responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{ display:false }, tooltip:{ backgroundColor:"#1B6F66", padding:10, titleFont:{family:"Sarabun"}, bodyFont:{family:"Sarabun"} } },
+      layout: { padding: { right: 34 } },
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ backgroundColor:"#1B6F66", padding:10, titleFont:{family:"TH Sarabun New, Sarabun"}, bodyFont:{family:"TH Sarabun New, Sarabun"} }
+      },
       scales: {
-        x: { ticks:{ font:{family:"Sarabun", size:10.5}, autoSkip:false, maxRotation:25, minRotation:0 }, grid:{ display:false } },
-        y: { beginAtZero:true, ticks:{ precision:0, font:{family:"IBM Plex Mono", size:11} }, grid:{ color:"#EAF4F2" } }
+        x: { beginAtZero:true, suggestedMax: maxVal + Math.max(1, Math.ceil(maxVal*0.18)), ticks:{ precision:0, font:{family:"IBM Plex Mono", size:11} }, grid:{ color:"#EAF4F2" } },
+        y: { ticks:{ font:{family:"TH Sarabun New, Sarabun", size:12.5} }, grid:{ display:false } }
       }
-    }
+    },
+    plugins: [{
+      id: "audienceValueLabels",
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const meta = chart.getDatasetMeta(0);
+        ctx.save();
+        ctx.font = "600 12px 'IBM Plex Mono', monospace";
+        ctx.fillStyle = "#1B6F66";
+        ctx.textBaseline = "middle";
+        meta.data.forEach((bar, i) => {
+          const val = chart.data.datasets[0].data[i];
+          ctx.fillText(String(val), bar.x + 8, bar.y);
+        });
+        ctx.restore();
+      }
+    }]
   });
 }
 
@@ -867,13 +911,28 @@ function renderInsights() {
     monthMap[key] = (monthMap[key]||0)+1;
   });
   const sortedKeys = Object.keys(monthMap).sort();
+  let trendDir = null, trendDiff = 0;
   if (sortedKeys.length >= 2) {
     const last = monthMap[sortedKeys[sortedKeys.length-1]];
     const prev = monthMap[sortedKeys[sortedKeys.length-2]];
-    const diff = last - prev;
-    const dir = diff > 0 ? "เพิ่มขึ้น" : diff < 0 ? "ลดลง" : "เท่าเดิม";
-    if (diff !== 0) insights.push(`จำนวนการแจ้งเรื่องเดือนล่าสุด${dir}จากเดือนก่อนหน้า ${Math.abs(diff)} รายการ`);
+    trendDiff = last - prev;
+    trendDir = trendDiff > 0 ? "เพิ่มขึ้น" : trendDiff < 0 ? "ลดลง" : "เท่าเดิม";
+    if (trendDiff !== 0) insights.push(`จำนวนการแจ้งเรื่องเดือนล่าสุด${trendDir}จากเดือนก่อนหน้า ${Math.abs(trendDiff)} รายการ`);
   }
+
+  // ---- Build the short plain-language summary line ----
+  const summaryParts = [];
+  summaryParts.push(`เดือนนี้มีการแจ้งเรื่องทั้งหมด ${total} รายการ`);
+  if (sortedMoods.length) summaryParts.push(`ความรู้สึกหลักคือ "${sortedMoods[0][0]}"`);
+  if (topicCounts[0] && topicCounts[0].count > 0) summaryParts.push(`ประเด็นที่ถูกพูดถึงมากที่สุดคือเรื่อง "${topicCounts[0].label}"`);
+  if (sortedAud.length) summaryParts.push(`ส่วนใหญ่อยากให้ "${sortedAud[0][0]}" รับรู้`);
+  if (trendDir && trendDiff !== 0) summaryParts.push(`แนวโน้มเดือนล่าสุด${trendDir}`);
+  const summaryLine = summaryParts.join(" · ");
+
+  const summaryBox = document.createElement("div");
+  summaryBox.className = "insight-summary";
+  summaryBox.innerHTML = `<span class="insight-summary-tag">สรุปย่อ</span><span>${escapeHtml(summaryLine)}</span>`;
+  list.appendChild(summaryBox);
 
   insights.forEach(text => {
     const item = document.createElement("div");
@@ -933,7 +992,7 @@ function renderFeedList() {
   entries.forEach(e => {
     const card = document.createElement("div");
     card.className = "feed-card";
-    const dateStr = e.row.date ? `${e.row.date.getDate()} ${THAI_MONTHS[e.row.date.getMonth()].substring(0,3)} ${buddhistYear(e.row.date)}` : "";
+    const dateStr = e.row.date ? `${e.row.date.getDate()} ${THAI_MONTHS_ABBR[e.row.date.getMonth()]} ${buddhistYear(e.row.date)}` : "";
     card.innerHTML = `
       <div class="feed-meta">
         <span class="feed-mood">${escapeHtml(e.row.moodNorm || "ไม่ระบุความรู้สึก")}</span>
